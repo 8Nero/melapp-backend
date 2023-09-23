@@ -1,11 +1,10 @@
-import io
+from pathlib import Path
 import torch
 from urllib.request import urlopen
 from PIL import Image
+from torch import argmax
 from torchvision import models
 import torchvision.transforms as transforms
-from flask import Flask, request
-from flask_cors import CORS
 
 # Load a pre-trainied DenseNet model from torchvision.models
 model = models.densenet121(weights=models.DenseNet121_Weights.DEFAULT)
@@ -27,43 +26,20 @@ transform = transforms.Compose([
 
 def predict(model, transform, image, class_labels):
   # Transform the image and convert it to a tensor
-  image_tensor = transform(image).unsqueeze(0)
+  image_tensor = transform(image)
+  image_tensor = image_tensor.unsqueeze(0)
 
   # Pass the image through the model
   with torch.no_grad():
       output = model(image_tensor)
 
   # Select the class with the highest probability
-  class_id = torch.argmax(output).item()
+  class_id = argmax(output).item()
   class_name = class_labels[class_id]
   return class_name
 
 
-app = Flask(__name__)
-CORS(app)
+test_file = Path('/home/miranjo/rawr.png')
+img = Image.open(test_file).convert('RGB')
 
-@app.route('/')
-def index():
-  return "This is the server"
-
-@app.route("/predict", methods=["POST"])
-def predict_api():
-  try:
-    # Fetch the image from the request and convert it
-    print(request.files)
-    image_file = request.files["file"]
-    image_bytes = image_file.read()
-    image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-  
-    # Predict the class from the image
-    class_name = predict(model, transform, image, class_labels)
-    
-    # Write result as JSON
-    return class_name
-  
-  except Exception as e:
-    return str(e)
-
-# Run the app
-if __name__ == "__main__":
-  app.run(debug=False, threaded=True)
+print(predict(model, transform, img, class_labels))
